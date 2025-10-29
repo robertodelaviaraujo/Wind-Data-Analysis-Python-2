@@ -15,5 +15,5 @@ def create_scatter_plot(df: pd.DataFrame):
             text=[f"{num_cols[0]}: {x}<br>{num_cols[1]}: {y}" for x, y in zip(df[num_cols[0]], df[num_cols[1]])],
         )
     )
-    fig.update_layout(title=f"Dispersão: {num_cols[0]} x {num_cols[1]}", template="plotly_dark", height=500)
+    fig.update_layout(title=f"Dispersão: {num_cols[0]} x {num_cols[1]}", height=350)
     return fig

@@ -15,5 +15,5 @@ def create_correlation_plot(df: pd.DataFrame):
         title="Matriz de Correlação",
         aspect="auto"
     )
-    fig.update_layout(template="plotly_dark", height=500)
+    fig.update_layout(height=350)
     return fig

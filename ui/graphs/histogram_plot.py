@@ -7,5 +7,5 @@ def create_histogram_plot(df: pd.DataFrame):
         return px.histogram(x=[]).update_layout(title="Nenhuma coluna numérica encontrada")
 
     fig = px.histogram(df, x=num_cols[0], nbins=30, color_discrete_sequence=["skyblue"])
-    fig.update_layout(title=f"Histograma de {num_cols[0]}", template="plotly_dark", height=500)
+    fig.update_layout(title=f"Histograma de {num_cols[0]}", height=350)
     return fig

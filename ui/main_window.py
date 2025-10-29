@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
-    QFileDialog, QMessageBox, QLabel
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
+    QPushButton, QFileDialog, QMessageBox, QLabel
 )
 from ui.data_table_view import DataTableView
 from ui.graph_panel import GraphPanel
@@ -9,6 +9,7 @@ from core.file_importer import import_files
 from core.data_store import data_store
 import core.math_operations as mo
 import pandas as pd
+from PyQt6.QtCore import Qt
 
 
 class MainWindow(QMainWindow):
@@ -17,89 +18,79 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("🌬️ Wind Analyzer - Software de Anemometria")
         self.resize(1400, 800)
 
-        # -------------------
-        # Layout principal
-        # -------------------
         main_widget = QWidget()
-        main_layout = QHBoxLayout(main_widget)
+        main_layout = QVBoxLayout(main_widget)
 
-        # Tabela de dados
+        # -------------------
+        # Botões horizontais no topo
+        # -------------------
+        btn_layout = QHBoxLayout()
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        btn_layout.setSpacing(5)
+
+        self.btn_import = QPushButton("📂 Importar Arquivos")
+        self.btn_save = QPushButton("💾 Salvar Projeto (.wnd)")
+        self.btn_load = QPushButton("📁 Abrir Projeto (.wnd)")
+        self.btn_freeze = QPushButton("❄️ Congelar Linhas")
+        self.btn_unfreeze = QPushButton("🔥 Descongelar Linhas")
+        self.btn_clear = QPushButton("🧹 Limpar Dados")
+
+        for btn in [self.btn_import, self.btn_save, self.btn_load, self.btn_freeze, self.btn_unfreeze, self.btn_clear]:
+            btn.setFixedHeight(30)
+            btn_layout.addWidget(btn)
+
+        main_layout.addLayout(btn_layout)
+
+        # -------------------
+        # Corpo principal com splitter (2 colunas ajustáveis)
+        # -------------------
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Coluna 1: Tabela de dados
         self.table = DataTableView()
-        main_layout.addWidget(self.table, 3)
+        splitter.addWidget(self.table)
 
-        # Painel de gráficos
+        # Coluna 2: Painel de gráficos
         self.graph_panel = GraphPanel()
-        main_layout.addWidget(self.graph_panel, 4)
+        splitter.addWidget(self.graph_panel)
+
+        # Define proporção inicial das colunas (tabela 40%, gráficos 60%)
+        splitter.setSizes([600, 800])
+
+        main_layout.addWidget(splitter)
 
         # -------------------
-        # Layout lateral: botões e cálculos
+        # Painel de cálculos abaixo dos botões
         # -------------------
-        button_layout = QVBoxLayout()
+        calc_layout = QHBoxLayout()
+        calc_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        calc_layout.setSpacing(5)
 
-        # Botões principais
-        btn_import = QPushButton("📂 Importar Arquivos")
-        btn_save = QPushButton("💾 Salvar Projeto (.wnd)")
-        btn_load = QPushButton("📁 Abrir Projeto (.wnd)")
-        btn_freeze = QPushButton("❄️ Congelar Linhas")
-        btn_unfreeze = QPushButton("🔥 Descongelar Linhas")
-        btn_clear = QPushButton("🧹 Limpar Dados")  # Novo botão
+        self.btn_mean = QPushButton("Média")
+        self.btn_std = QPushButton("Desvio Padrão")
+        self.btn_corr = QPushButton("Correlação")
 
-        # define height
-        btn_import.setMinimumHeight(40)
-        btn_save.setMinimumHeight(40)
-        btn_load.setMinimumHeight(40)
-        btn_freeze.setMinimumHeight(40)
-        btn_unfreeze.setMinimumHeight(40)
-        btn_clear.setMinimumHeight(40)
+        for btn in [self.btn_mean, self.btn_std, self.btn_corr]:
+            btn.setFixedHeight(30)
+            calc_layout.addWidget(btn)
 
-        button_layout.addWidget(btn_import)
-        button_layout.addWidget(btn_save)
-        button_layout.addWidget(btn_load)
-        button_layout.addWidget(btn_freeze)
-        button_layout.addWidget(btn_unfreeze)
-        button_layout.addWidget(btn_clear)
-        
-        # Conecta funções
-        btn_import.clicked.connect(self.import_csv)
-        btn_save.clicked.connect(self.save_project)
-        btn_load.clicked.connect(self.load_project)
-        btn_freeze.clicked.connect(self.freeze_selected)
-        btn_unfreeze.clicked.connect(self.unfreeze_selected)
-        btn_clear.clicked.connect(self.clear_data)  # Conecta ao método
+        main_layout.addLayout(calc_layout)
 
-        # -------------------
-        # Painel lateral de cálculos
-        # -------------------
-        self.calc_panel = QVBoxLayout()
-        self.calc_panel.addWidget(QLabel("📊 Cálculos Disponíveis"))
-
-        btn_mean = QPushButton("Média")
-        btn_std = QPushButton("Desvio Padrão")
-        btn_corr = QPushButton("Correlação")
-
-        # define height
-        btn_mean.setMinimumHeight(40)
-        btn_std.setMinimumHeight(40)
-        btn_corr.setMinimumHeight(40)
-
-        self.calc_panel.addWidget(btn_mean)
-        self.calc_panel.addWidget(btn_std)
-        self.calc_panel.addWidget(btn_corr)
-        self.calc_panel.addStretch()
-
-        # Conecta funções
-        btn_mean.clicked.connect(self.calculate_mean)
-        btn_std.clicked.connect(self.calculate_std)
-        btn_corr.clicked.connect(self.calculate_correlation)
-
-        # Adiciona ambos layouts laterais ao layout principal
-        side_panel = QVBoxLayout()
-        side_panel.addLayout(button_layout)
-        side_panel.addLayout(self.calc_panel)
-        side_panel.addStretch()
-
-        main_layout.addLayout(side_panel, 1)
         self.setCentralWidget(main_widget)
+
+        # -------------------
+        # Conecta funções
+        # -------------------
+        self.btn_import.clicked.connect(self.import_csv)
+        self.btn_save.clicked.connect(self.save_project)
+        self.btn_load.clicked.connect(self.load_project)
+        self.btn_freeze.clicked.connect(self.freeze_selected)
+        self.btn_unfreeze.clicked.connect(self.unfreeze_selected)
+        self.btn_clear.clicked.connect(self.clear_data)
+
+        self.btn_mean.clicked.connect(self.calculate_mean)
+        self.btn_std.clicked.connect(self.calculate_std)
+        self.btn_corr.clicked.connect(self.calculate_correlation)
 
     # -------------------
     # Funções de cálculos
@@ -153,15 +144,15 @@ class MainWindow(QMainWindow):
         try:
             df = import_files(file_paths, layout_name)
             data_store.add_data(df)
-            self.table.update_table(data_store.data, data_store.frozen_rows)
-            self.graph_panel.update_graph(data_store.get_active_data())
+            self.table.update_table(data_store.get_data(), data_store.frozen_rows)
+            self.graph_panel.update_graphs()
             QMessageBox.information(self, "Sucesso", f"{len(file_paths)} arquivo(s) importado(s) com layout '{layout_name}'.")
         except Exception as e:
             QMessageBox.critical(self, "Erro ao importar", str(e))
 
     def save_project(self):
-        data = data_store.get_data()
-        if data is None or data.empty:
+        df = data_store.get_data()
+        if df.empty:
             QMessageBox.warning(self, "Aviso", "Nenhum dado carregado para salvar.")
             return
 
@@ -170,7 +161,7 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            data.to_pickle(file_path)
+            df.to_pickle(file_path)
             QMessageBox.information(self, "Sucesso", "Projeto salvo com sucesso!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar o projeto:\n{e}")
@@ -183,7 +174,7 @@ class MainWindow(QMainWindow):
             df = pd.read_pickle(file_path)
             data_store.set_data(df)
             self.table.update_table(df, data_store.frozen_rows)
-            self.graph_panel.update_graph(data_store.get_active_data())
+            self.graph_panel.update_graphs()
             QMessageBox.information(self, "Sucesso", "Projeto carregado com sucesso!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao abrir o projeto:\n{e}")
@@ -194,17 +185,17 @@ class MainWindow(QMainWindow):
     def freeze_selected(self):
         indices = self.table.get_selected_indices()
         data_store.freeze_rows(indices)
-        self.table.update_table(data_store.data, data_store.frozen_rows)
-        self.graph_panel.update_graph(data_store.get_active_data())
+        self.table.update_table(data_store.get_data(), data_store.frozen_rows)
+        self.graph_panel.update_graphs()
 
     def unfreeze_selected(self):
         indices = self.table.get_selected_indices()
         data_store.unfreeze_rows(indices)
-        self.table.update_table(data_store.data, data_store.frozen_rows)
-        self.graph_panel.update_graph(data_store.get_active_data())
+        self.table.update_table(data_store.get_data(), data_store.frozen_rows)
+        self.graph_panel.update_graphs()
 
     # -------------------
-    # Método para limpar dados
+    # Limpar dados
     # -------------------
     def clear_data(self):
         reply = QMessageBox.question(
@@ -214,8 +205,8 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            data_store.data = pd.DataFrame()
+            data_store.set_data(pd.DataFrame())
             data_store.frozen_rows.clear()
-            self.table.update_table(data_store.data, data_store.frozen_rows)
-            self.graph_panel.update_graph(data_store.get_active_data())
+            self.table.update_table(data_store.get_data(), data_store.frozen_rows)
+            self.graph_panel.update_graphs()
             QMessageBox.information(self, "Sucesso", "Todos os dados foram limpos.")
