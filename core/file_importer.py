@@ -1,11 +1,9 @@
+# core/importer/file_importer.py
 import pandas as pd
 from core.importer.layouts import LAYOUTS
+from io import StringIO
 
 def import_files(file_paths, layout_name):
-    """
-    Importa um ou mais arquivos conforme o layout selecionado.
-    Ignora blocos fora do padrão tabular (ex: seções [System], [Summary], etc.).
-    """
     layout = LAYOUTS.get(layout_name)
     if not layout:
         raise ValueError(f"Layout '{layout_name}' não encontrado.")
@@ -13,71 +11,63 @@ def import_files(file_paths, layout_name):
     all_data = []
 
     for file_path in file_paths:
+        # 🔍 Lê conteúdo com fallback de encoding
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
+                content = f.read()
         except UnicodeDecodeError:
             with open(file_path, "r", encoding="latin-1") as f:
-                lines = f.readlines()
+                content = f.read()
 
-        # 🔍 Detecta onde o bloco de dados realmente começa
+        # 🔍 Detecta delimitador (mais usado)
+        delimiter = ";" if content.count(";") > content.count(",") else ","
+
+        # 🔍 Identifica linha de cabeçalho válida
+        lines = content.splitlines()
         header_index = None
         for i, line in enumerate(lines):
             if any(col in line for col in layout["columns"].keys()):
                 header_index = i
                 break
-
         if header_index is None:
             raise ValueError(f"Nenhum cabeçalho compatível encontrado em {file_path}")
 
-        # 🔍 Mantém apenas linhas que seguem o padrão (antes de blocos como [System])
+        # 🔍 Mantém apenas linhas de dados (até bloco tipo [System])
         data_lines = []
         for line in lines[header_index:]:
             if line.strip().startswith("["):
-                # Parar quando encontrar bloco tipo [System], [Summary], etc.
                 break
-            # Ignorar linhas totalmente vazias
-            if not line.strip():
-                continue
-            data_lines.append(line)
+            if line.strip():
+                data_lines.append(line)
 
         if not data_lines:
             continue
 
-        # Detecta delimitador
-        sample = "".join(data_lines[:10])
-        delimiter = ";" if sample.count(";") > sample.count(",") else ","
+        # 🔍 Lê o CSV efetivamente
+        df = pd.read_csv(
+            StringIO("\n".join(data_lines)),
+            delimiter=delimiter,
+            engine="python",
+            encoding="utf-8",
+            on_bad_lines="skip"
+        )
 
-        from io import StringIO
-        try:
-            df = pd.read_csv(
-                StringIO("".join(data_lines)),
-                delimiter=delimiter,
-                engine="python",
-                encoding="utf-8",
-                on_bad_lines="skip"
-            )
-        except Exception as e:
-            raise ValueError(f"Erro ao ler {file_path}: {e}")
+        # 🔍 Renomeia colunas conforme layout
+        mapping = layout["columns"]
+        df = df.rename(columns=mapping)
 
-        # Renomeia colunas com base no layout
-        column_mapping = layout["columns"]
-        df = df.rename(columns=column_mapping)
+        # 🔍 Filtra apenas as colunas conhecidas
+        df = df[[c for c in mapping.values() if c in df.columns]]
 
-        # Filtra apenas colunas conhecidas
-        df = df[[c for c in column_mapping.values() if c in df.columns]]
-
-        # Apenas adiciona se houver dados válidos
         if not df.empty:
             all_data.append(df)
 
     if not all_data:
         raise ValueError("Nenhum dado válido importado.")
 
-    # Junta todos os DataFrames
     data = pd.concat(all_data, ignore_index=True)
 
-    # Converte e ordena por datetime
+    # 🔍 Converte e ordena datetime
     if "datetime" in data.columns:
         data["datetime"] = pd.to_datetime(data["datetime"], errors="coerce")
         data = data.dropna(subset=["datetime"]).sort_values(by="datetime").reset_index(drop=True)

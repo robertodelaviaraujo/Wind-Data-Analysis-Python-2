@@ -1,12 +1,13 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTabWidget
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from ui.graphs.time_series_plot import create_time_series_plot
 from ui.graphs.scatter_plot import create_scatter_plot
 from ui.graphs.histogram_plot import create_histogram_plot
 from ui.graphs.correlation_plot import create_correlation_plot
 from ui.graphs.windrose_plot import create_windrose_plot
 from core.data_store import data_store
-import pandas as pd
 import plotly.io as pio
+import pandas as pd
 
 class GraphPanel(QWidget):
     def __init__(self):
@@ -19,11 +20,14 @@ class GraphPanel(QWidget):
         layout.addWidget(self.tabs)
 
         # Cria abas com webviews
+        self.time_view = QWebEngineView()
         self.scatter_view = QWebEngineView()
         self.hist_view = QWebEngineView()
         self.corr_view = QWebEngineView()
         self.windrose_view = QWebEngineView()
 
+        # Adiciona as abas (Time Series primeiro)
+        self.tabs.addTab(self.time_view, "Série Temporal")
         self.tabs.addTab(self.scatter_view, "Dispersão")
         self.tabs.addTab(self.hist_view, "Histograma")
         self.tabs.addTab(self.corr_view, "Correlação")
@@ -38,17 +42,19 @@ class GraphPanel(QWidget):
 
         if df_original.empty:
             html = "<h3 style='text-align:center;margin-top:100px'>Nenhum dado carregado</h3>"
-            for view in [self.scatter_view, self.hist_view, self.corr_view, self.windrose_view]:
+            for view in [self.time_view, self.scatter_view, self.hist_view, self.corr_view, self.windrose_view]:
                 view.setHtml(html)
             return
 
         # Cria HTML para cada aba
+        time_html = self._create_dual_plot_html(df_original, df_filtered, create_time_series_plot)
         scatter_html = self._create_dual_plot_html(df_original, df_filtered, create_scatter_plot)
         hist_html = self._create_dual_plot_html(df_original, df_filtered, create_histogram_plot)
         corr_html = self._create_dual_plot_html(df_original, df_filtered, create_correlation_plot)
         wind_html = self._create_dual_plot_html(df_original, df_filtered, create_windrose_plot)
 
         # Exibe nos webviews
+        self.time_view.setHtml(time_html)
         self.scatter_view.setHtml(scatter_html)
         self.hist_view.setHtml(hist_html)
         self.corr_view.setHtml(corr_html)
